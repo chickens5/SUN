@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head><meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>GGSP v7.0 - Geomagnetic Storm Predictor</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<style type="text/css">
+/* Jupyter notebook styles - abbreviated for space */
+pre { line-height: 125%; }
+</style>
+<style type="text/css">
+/*
+JupyterLab Base Styles
+*/
+
+html,
+body {
+  color: var(--jp-ui-font-color1);
+  font-family: var(--jp-ui-font-family);
+  font-size: var(--jp-ui-font-size1);
+  line-height: var(--jp-ui-font-size1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+Scrollbars
+*/
+
+/* Firefox */
+* {
+  scrollbar-color: rgb(var(--jp-scrollbar-thumb-color))
+    var(--jp-scrollbar-background-color);
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--jp-ui-font-family);
+  font-size: var(--jp-ui-font-size1);
+  color: var(--jp-ui-font-color1);
+  background-color: var(--jp-layout-color1);
+}
+
+:root {
+  --jp-ui-font-color0: rgba(0, 0, 0, 1);
+  --jp-ui-font-color1: rgba(0, 0, 0, 0.87);
+  --jp-ui-font-color2: rgba(0, 0, 0, 0.54);
+  --jp-ui-font-color3: rgba(0, 0, 0, 0.38);
+  --jp-ui-inverse-font-color0: rgba(255, 255, 255, 1);
+  --jp-ui-inverse-font-color1: rgba(255, 255, 255, 0.9);
+  --jp-ui-inverse-font-color2: rgba(255, 255, 255, 0.7);
+  --jp-ui-inverse-font-color3: rgba(255, 255, 255, 0.5);
+  --jp-layout-color0: white;
+  --jp-layout-color1: white;
+  --jp-layout-color2: var(--jp-gray-200);
+  --jp-layout-color3: var(--jp-gray-300);
+  --jp-layout-color4: var(--jp-gray-400);
+  --jp-gray-100: #f5f5f5;
+  --jp-gray-200: #eeeeee;
+  --jp-gray-300: #e0e0e0;
+  --jp-gray-400: #bdbdbd;
+  --jp-gray-500: #9e9e9e;
+  --jp-gray-600: #757575;
+  --jp-gray-700: #616161;
+  --jp-gray-800: #424242;
+  --jp-gray-900: #212121;
+  --jp-warn-color0: #f8d7da;
+  --jp-warn-color1: #f5c6cb;
+  --jp-brand-color0: #003d99;
+  --jp-brand-color1: #0051ba;
+  --jp-brand-color2: #0059d0;
+  --jp-brand-color3: #0066e6;
+  --jp-brand-color4: #3b8dff;
+}
+
+.jp-Notebook {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.jp-Notebook .jp-Cell {
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.jp-Notebook .jp-Cell.jp-mod-noOutputs .jp-Cell-outputArea {
+  border: none;
+}
+
+.jp-Cell {
+  margin: var(--jp-cell-margin);
+  padding: 0;
+  position: relative;
+  overflow: visible;
+}
+
+.jp-Cell-inputWrapper,
+.jp-Cell-outputWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-Cell-inputArea,
+.jp-Cell-outputArea {
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-Cell-outputPrompt {
+  display: flex;
+  align-items: flex-end;
+  padding: var(--jp-code-padding);
+  font-family: var(--jp-code-font-family);
+  font-size: var(--jp-code-font-size);
+  line-height: var(--jp-code-line-height);
+  color: var(--jp-cell-outprompt-background);
+  min-width: calc(
+    var(--jp-cell-prompt-width) + var(--jp-cell-prompt-padding) * 2 -
+      var(--jp-code-padding)
+  );
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.jp-Cell-outputArea {
+  output-type: base;
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-OutputArea {
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-OutputArea-child {
+  display: flex;
+  flex-direction: row;
+}
+
+.jp-OutputPrompt {
+  flex: 0 0 auto;
+  width: auto;
+  text-align: right;
+  margin-right: var(--jp-notebook-padding);
+  color: var(--jp-cell-outprompt-background);
+}
+
+.jp-RenderedHTMLCommon {
+  font-family: var(--jp-content-font-family);
+  font-size: var(--jp-content-font-size1);
+  line-height: var(--jp-content-line-height);
+  color: var(--jp-content-font-color1);
+}
+
+.jp-RenderedHTMLCommon img {
+  max-width: 100%;
+  height: auto;
+}
+
+.jp-RenderedHTMLCommon img,
+.jp-RenderedImage {
+  max-width: 100%;
+  height: auto;
+}
+
+.jp-notebook-cell-index {
+  width: calc(var(--jp-cell-prompt-width) + var(--jp-cell-prompt-padding) * 2);
+  color: var(--jp-ui-font-color2);
+  font-family: var(--jp-code-font-family);
+  padding: var(--jp-code-padding);
+  text-align: right;
+  border-right: var(--jp-border-width) solid var(--jp-border-color1);
+  flex: 0 0 auto;
+}
+
+.jp-Cell-inputWrapper {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: var(--jp-cell-margin);
+}
+
+.jp-Cell-inputArea {
+  border: var(--jp-border-width) solid var(--jp-cell-border-color);
+  border-radius: 4px;
+  background: var(--jp-cell-editor-background);
+  flex: 1 1 auto;
+}
+
+.jp-CodeCell {
+  margin: var(--jp-cell-margin);
+}
+
+.jp-CodeCell.jp-mod-noOutputs {
+  border-bottom: none;
+  margin-bottom: var(--jp-cell-margin);
+}
+
+.jp-Cell.jp-mod-noOutputs .jp-Cell-outputArea {
+  border: none;
+  flex: 0 0 auto;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.jp-OutputArea.jp-Cell-outputArea {
+  border-top: var(--jp-border-width) solid var(--jp-cell-border-color);
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  background: var(--jp-cell-editor-background);
+}
+
+.jp-MarkdownCell {
+  margin: var(--jp-cell-margin);
+}
+
+.jp-MarkdownCell.jp-mod-rendered {
+  padding: 0;
+  border: none;
+}
+
+.jp-MarkdownCell .jp-InputArea-editor {
+  border: var(--jp-border-width) solid var(--jp-cell-border-color);
+  border-radius: 4px;
+  background: var(--jp-cell-editor-background);
+}
+
+.jp-MarkdownCell .jp-Cell-label {
+  color: var(--jp-cell-prompt-not-active);
+}
+
+.jp-RenderedMarkdown {
+  margin-left: var(--jp-cell-prompt-width);
+  margin-right: 12px;
+}
+
+.jp-RenderedMarkdown.jp-MarkdownCell-hide {
+  display: none;
+}
+
+.jp-Notebook .jp-Cell-inputWrapper.jp-mod-hidden .jp-Cell-inputPrompt,
+.jp-Notebook .jp-Cell-inputWrapper.jp-mod-hidden .jp-InputArea-editor {
+  visibility: hidden;
+}
+
+.jp-Notebook .jp-Cell-inputWrapper.jp-mod-hidden .jp-Cell-inputPrompt {
+  padding: var(--jp-code-padding);
+  margin-left: calc(var(--jp-cell-prompt-width) + var(--jp-cell-prompt-padding));
+}
+
+@media print {
+  .jp-Cell-inputWrapper.jp-mod-hidden {
+    display: none;
+  }
+
+  .jp-Cell-outputWrapper.jp-mod-hidden {
+    display: none;
+  }
+}
+
+.jp-notebook-cell-index {
+  width: calc(var(--jp-cell-prompt-width) + var(--jp-cell-prompt-padding) * 2);
+  color: var(--jp-ui-font-color2);
+  font-family: var(--jp-code-font-family);
+  padding: var(--jp-code-padding);
+  text-align: right;
+  border-right: var(--jp-border-width) solid var(--jp-border-color1);
+  flex: 0 0 auto;
+}
+</style>
+<style type="text/css">
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-bottom: 0.5em;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2em;
+  border-bottom: 2px solid #0051ba;
+  padding-bottom: 1em;
+}
+
+.nav {
+  text-align: center;
+  margin-bottom: 2em;
+}
+
+.nav a {
+  display: inline-block;
+  margin: 0 10px;
+  padding: 8px 12px;
+  background-color: #0051ba;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.nav a:hover {
+  background-color: #003d99;
+}
+
+.notebook-section {
+  margin-bottom: 3em;
+  background-color: #f9f9f9;
+  padding: 1em;
+  border-radius: 4px;
+  border-left: 4px solid #0051ba;
+}
+
+.feature-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.feature-list li {
+  padding: 0.5em 0;
+  padding-left: 1.5em;
+  position: relative;
+}
+
+.feature-list li:before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #0051ba;
+  font-weight: bold;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1em;
+}
+
+table th, table td {
+  border: 1px solid #ddd;
+  padding: 0.75em;
+  text-align: left;
+}
+
+table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+code {
+  background-color: #f4f4f4;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+}
+
+pre {
+  background-color: #f4f4f4;
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.chart-container {
+  margin: 2em 0;
+  padding: 1em;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.info-box {
+  background-color: #e7f3ff;
+  border-left: 4px solid #0051ba;
+  padding: 1em;
+  margin: 1em 0;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 3em;
+  padding-top: 2em;
+  border-top: 1px solid #ccc;
+  font-size: 0.9em;
+  color: #666;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>GGSP v7.0</h1>
+    <h2>Geomagnetic Storm Predictor</h2>
+    <p>Machine Learning Prediction of Kp Index & Solar Wind Parameters</p>
+  </div>
+
+  <div class="nav">
+    <a href="#notebook">View Notebook</a>
+    <a href="research.md">Research Docs</a>
+    <a href="future.md">Future Roadmap</a>
+    <a href="https://github.com">GitHub Repo</a>
+  </div>
+
+  <div class="notebook-section" id="notebook">
+    <h3>📊 Interactive Notebook</h3>
+    <p>The interactive notebook below contains the complete analysis, model training, and forecasting pipeline:</p>
+    <div class="chart-container">
+      <p><strong>Notebook is loading...</strong> If not visible, please enable JavaScript or open the notebook directly.</p>
+      <div id="notebook-viewer">
+        <!-- Notebook will be rendered here -->
+      </div>
+    </div>
+  </div>
+
+  <div class="notebook-section">
+    <h3>🎯 Key Features</h3>
+    <ul class="feature-list">
+      <li>Machine Learning Model: Gradient Boosting trained on 1,300+ OMNI samples</li>
+      <li>3-Day Forecast: Quiet, Moderate, and Active scenario ensemble</li>
+      <li>5-Parameter Prediction: Speed, Density, Bz, Bt, and Newell Coupling</li>
+      <li>Physics-Based: Newell coupling formula for magnetosphere energy transfer</li>
+      <li>Real-Time Data: Fetches NASA OMNIweb and NOAA SWPC data</li>
+      <li>Extensive Documentation: 400+ lines of research methodology</li>
+    </ul>
+  </div>
+
+  <div class="notebook-section">
+    <h3>📈 Model Performance</h3>
+    <table>
+      <tr>
+        <th>Metric</th>
+        <th>Performance</th>
+        <th>Baseline</th>
+      </tr>
+      <tr>
+        <td>Mean Absolute Error (Kp)</td>
+        <td>0.4-0.5</td>
+        <td>0.4-0.6</td>
+      </tr>
+      <tr>
+        <td>R² Score</td>
+        <td>0.5-0.7</td>
+        <td>0.4-0.7</td>
+      </tr>
+      <tr>
+        <td>Training Samples</td>
+        <td>1,300+</td>
+        <td>~60</td>
+      </tr>
+      <tr>
+        <td>Data Source</td>
+        <td>NASA OMNIweb</td>
+        <td>NOAA Real-time</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="info-box">
+    <h4>📝 Documentation</h4>
+    <p>Comprehensive research documentation is available in the <a href="research.md">Research & Algorithms</a> file, including:</p>
+    <ul>
+      <li>Kp index physics and space weather fundamentals</li>
+      <li>Newell coupling derivation and formula</li>
+      <li>Feature engineering methodology</li>
+      <li>Model training strategy and validation</li>
+      <li>Peer-reviewed references and citations</li>
+    </ul>
+  </div>
+
+  <div class="info-box">
+    <h4>🚀 Future Roadmap</h4>
+    <p>Check out the <a href="future.md">Future Iterations</a> document for planned enhancements:</p>
+    <ul>
+      <li>Sunspot tracking and classification</li>
+      <li>CME (Coronal Mass Ejection) prediction</li>
+      <li>Multi-stage architecture (upstream solar physics → downstream Kp)</li>
+      <li>5-phase implementation plan with ML pipeline</li>
+    </ul>
+  </div>
+
+  <div class="notebook-section">
+    <h3>🔧 Getting Started</h3>
+    <ol>
+      <li>The notebook loads NASA OMNIweb solar wind data (1,300+ samples)</li>
+      <li>Trains a Gradient Boosting model on historical Kp index labels</li>
+      <li>Generates 3-day future scenarios (Quiet, Moderate, Active)</li>
+      <li>Predicts solar wind parameters and Kp index</li>
+      <li>Calculates storm risk metrics for each scenario</li>
+    </ol>
+    <p><strong>Key Physics</strong>: Newell coupling function relates solar wind conditions to magnetosphere energy input:</p>
+    <pre>ε = V^(4/3) × B_t^(2/3) × sin^(8/3)(θ/2)</pre>
+    <p>Where V = speed, B_t = total field, θ = clock angle</p>
+  </div>
+
+  <div class="notebook-section">
+    <h3>📚 Algorithm Overview</h3>
+    <p>The model uses three key components:</p>
+    <ol>
+      <li><strong>Feature Engineering</strong>: Newell coupling, rolling statistics, and solar wind parameters</li>
+      <li><strong>Model Training</strong>: Gradient Boosting with cross-validation on multi-year data</li>
+      <li><strong>Ensemble Forecasting</strong>: Three physics-grounded scenarios (quiet→moderate→active)</li>
+    </ol>
+  </div>
+
+  <div class="footer">
+    <p>GGSP v7.0 | Geomagnetic Storm Predictor | Machine Learning for Space Weather</p>
+    <p>For full documentation and code comments, see the <a href="research.md">Research & Algorithms</a> document.</p>
+    <p><small>Last updated: 2024 | Data Sources: NASA OMNIweb, NOAA SWPC</small></p>
+  </div>
+</div>
+
+<script>
+// Optional: Add Plotly rendering if needed for interactive visualizations
+</script>
+
+</body>
+</html>
