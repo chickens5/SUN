@@ -1,0 +1,11 @@
+Hey,
+
+Im building this because I'm intersted in the Sun and space weather.
+
+Yeah
+
+
+I have a future iteration plan to predict CME occurences based off sun spots with our current
+features and what not.
+
+I will also add this all to minty, pristine-- freaking extravagant JS components.
