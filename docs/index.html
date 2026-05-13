@@ -255,12 +255,22 @@
         background: linear-gradient(135deg, rgba(110, 241, 214, 0.18), rgba(138, 180, 255, 0.12));
         color: var(--text);
       }
-
+ /* Make this button POP out and increase size since it redirects to our main feature */
+ /* On hover, it should expand mediumly and change background to a more vibrant gradient */
       .button.secondary {
-        background: rgba(255, 255, 255, 0.03);
-        color: var(--muted);
+        
+        background: linear-gradient(135deg, rgba(255, 184, 107, 0.18), rgba(255, 117, 143, 0.12));
+        color: var(--text);
+        font-weight: 600;
+        font-size: 1rem;
+
       }
 
+      .button.secondary:hover {
+        transform: translateY(-2px) scale(1.05);
+        background: linear-gradient(135deg, rgba(255, 184, 107, 0.28), rgba(255, 117, 143, 0.22));
+      }
+      
       .button code {
         font-family: 'IBM Plex Mono', ui-monospace, monospace;
         font-size: 0.86rem;
@@ -555,8 +565,8 @@
           </p>
           <div class="hero-actions">
             <a class="button secondary" href="/assets/GGSP-7.0_PROD.html">
-              <span>Notebook file</span>
-              <code>.html</code>
+              <b style ="color:#ffffff">Check out our latest Forecast!</b>
+              
             </a>
           </div>
           <div class="metrics">
