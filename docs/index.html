@@ -688,7 +688,7 @@
             </div>
             <div class="table-row">
               <strong>Notebook link</strong>
-              <span>Keep the <code>.ipynb</code> file in the repo so people can inspect the original analysis.</span>
+              <span>Point the notebook button to the exported file <code>./assets/GGSP-7.0_PROD.html</code> so readers open a static rendered notebook in-browser.</span>
             </div>
             <div class="table-row">
               <strong>Asset paths</strong>
@@ -709,11 +709,11 @@
           </div>
           <span class="badge accent">github pages</span>
         </div>
-        <pre class="code-block"><code>1. Keep GGSP_v7.0.html as the public landing page.
-2. Keep GGSP_v7.0_frontend.html as the static implementation note.
-3. Keep GGSP-7.0_PROD.ipynb in the repo for source inspection.
-4. Turn on GitHub Pages for the branch or folder that contains these files.
-5. Use only relative links so the site works at https://&lt;user&gt;.github.io/SUN/.</code></pre>
+        <pre class="code-block"><code>1. Keep docs/index.html as the public landing page.
+      2. Keep docs/assets/GGSP-7.0_PROD.html as the exported notebook page.
+      3. Link the notebook button to ./assets/GGSP-7.0_PROD.html.
+      4. Turn on GitHub Pages with source set to the docs/ folder on main.
+      5. Site URL resolves as https://&lt;user&gt;.github.io/SUN/ with the notebook at /SUN/assets/GGSP-7.0_PROD.html.</code></pre>
       </section>
 
       <footer class="footer fade-in">
@@ -722,7 +722,7 @@
           before any JavaScript or backend work begins.
         </div>
         <div>
-          Entry files: <code>GGSP_v7.0.html</code> and <code>GGSP_v7.0_frontend.html</code>
+          Entry files: <code>docs/index.html</code> and <code>docs/assets/GGSP-7.0_PROD.html</code>
         </div>
       </footer>
     </main>
