@@ -537,38 +537,23 @@
   </head>
   <body>
     <main class="shell">
-      <header class="topbar fade-in">
-        <div class="brand">
-          <div class="brand-mark" aria-hidden="true"></div>
-          <div class="brand-text">
-            <p class="eyebrow">Geomagnetic Storm Predictor</p>
-            <h1>GGSP v7.0 static frontend</h1>
-          </div>
-        </div>
-        <div class="meta">
-            Fully static reference<br />
-            GitHub Pages ready
-        </div>
-      </header>
-
+  
       <section class="hero fade-in" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <div class="kicker">
-            <span class="badge accent">static HTML</span>
-            <span class="badge blue">static HTML</span>
-            <span class="badge warn">no backend</span>
-          </div>
-          <h2 id="hero-title">A browser-first landing page for the geomagnetic storm notebook.</h2>
+
+          <h2 id="hero-title">Welcome!</h2>
+
           <p class="lede">
-            This version is intentionally fully static. It explains the implementation path, keeps the
-            notebook as a source artifact, and shows exactly how to publish to GitHub Pages before any
-            JavaScript or backend work is added.
+            This is the landing page for the geomagnetic storm predictor results based off the GGSP notebook.
+            We're currently static on GitHub Pages, so this page serves as both an introduction to the notebook 
+            and a guide to how the static implementation works and can be published.
+          </p>
+            <h3>What this notebook does</h3>
+          <p>
+            The Geomagnetic Storm Predictor ingests live solar wind data, trains a model on historical
+            observations, and forecasts planetary Kp for the next 72 hours.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#implementation">
-              <span>Implementation</span>
-              <code>static</code>
-            </a>
             <a class="button secondary" href="/assets/GGSP-7.0_PROD.html">
               <span>Notebook file</span>
               <code>.html</code>
@@ -589,25 +574,6 @@
             </div>
           </div>
         </div>
-
-        <aside class="hero-card">
-          <h3>What this page highlights</h3>
-          <div class="list">
-            <div class="list-item">
-              <span class="dot" aria-hidden="true"></span>
-              <span>Solar wind ingestion from NOAA SWPC and the OMNI fallback path.</span>
-            </div>
-            <div class="list-item">
-              <span class="dot" aria-hidden="true"></span>
-              <span>Physics-led feature engineering with Newell coupling and time-aware splitting.</span>
-            </div>
-            <div class="list-item">
-              <span class="dot" aria-hidden="true"></span>
-              <span>Held-out evaluation, storm-vs-quiet regime analysis, and operational forecast cells.</span>
-            </div>
-          </div>
-        </aside>
-      </section>
 
       <section class="sections fade-in" aria-label="Notebook summary">
         <article class="panel">
@@ -635,96 +601,6 @@
           </p>
         </article>
       </section>
-
-      <section class="implementation-grid fade-in" id="implementation">
-        <article class="panel tight">
-          <div class="tag">Implementation</div>
-          <h3>How this static version works</h3>
-          <div class="steps">
-            <div class="step">
-              <div class="index">Step 01</div>
-              <div>
-                <h4>Keep the notebook as source</h4>
-                <p>
-                  The production notebook remains the canonical artifact. This page does not execute it;
-                  it explains the pipeline and links back to the <code>.html</code> file.
-                </p>
-              </div>
-            </div>
-            <div class="step">
-              <div class="index">Step 02</div>
-              <div>
-                <h4>Export or rewrite to HTML</h4>
-                <p>
-                  For GitHub Pages, the notebook can be exported to static HTML with <code>nbconvert</code>
-                  or mirrored into a hand-authored HTML page like this one.
-                </p>
-              </div>
-            </div>
-            <div class="step">
-              <div class="index">Step 03</div>
-              <div>
-                <h4>Publish the generated files</h4>
-                <p>
-                  GitHub Pages only needs static files. Point the Pages source at the branch or folder that
-                  contains this HTML and any exported assets.
-                </p>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel tight">
-          <div class="tag">Publish</div>
-          <h3>GitHub Pages checklist</h3>
-          <div class="table-list">
-            <div class="table-row">
-              <strong>Build step</strong>
-              <span>No backend, no server, and no notebook runtime. Just HTML, CSS, and optional images.</span>
-            </div>
-            <div class="table-row">
-              <strong>Site source</strong>
-              <span>Use the repository root, the <code>docs/</code> folder, or a dedicated <code>gh-pages</code> branch.</span>
-            </div>
-            <div class="table-row">
-              <strong>Notebook link</strong>
-              <span>Point the notebook button to the exported file <code>./assets/GGSP-7.0_PROD.html</code> so readers open a static rendered notebook in-browser.</span>
-            </div>
-            <div class="table-row">
-              <strong>Asset paths</strong>
-              <span>Use relative URLs only so the site works from the GitHub Pages subpath.</span>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section class="viewer-shell fade-in" id="notebook-viewer">
-        <div class="viewer-heading">
-          <div>
-            <h3>Minimal publish recipe</h3>
-            <p>
-              A fully static deployment can be published with one exported page and one optional notebook link.
-              The example below is the exact shape this repo is using now.
-            </p>
-          </div>
-          <span class="badge accent">github pages</span>
-        </div>
-        <pre class="code-block"><code>1. Keep docs/index.html as the public landing page.
-      2. Keep docs/assets/GGSP-7.0_PROD.html as the exported notebook page.
-      3. Link the notebook button to ./assets/GGSP-7.0_PROD.html.
-      4. Turn on GitHub Pages with source set to the docs/ folder on main.
-      5. Site URL resolves as https://&lt;user&gt;.github.io/SUN/ with the notebook at /SUN/assets/GGSP-7.0_PROD.html.</code></pre>
-      </section>
-
-      <footer class="footer fade-in">
-        <div>
-          Built as a fully static document so the implementation and GitHub Pages publish path are visible
-          before any JavaScript or backend work begins.
-        </div>
-        <div>
-          Entry files: <code>docs/index.html</code> and <code>docs/assets/GGSP-7.0_PROD.html</code>
-        </div>
-      </footer>
     </main>
   </body>
 </html>
