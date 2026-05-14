@@ -1,17 +1,29 @@
-# Geomagnetic Storm Predictor: Research & Algorithm Documentation
+# Hey howz ya dooin
 
-## Executive Summary
-This notebook implements a machine learning pipeline to predict the **Planetary Kp Index** — a measure of geomagnetic storm intensity — from real-time solar wind observations. The model combines physics-based feature engineering with gradient boosted regression trees, achieving realistic performance on multi-year historical data.
+#This is a Geomagnetic Storm Predictor.
 
----
+Basically, I created a machine learning pipeline to predict the **Planetary Kp Index ( a measure of geomagnetic storm intensity ) with real time solar wind observations from [NOAA](https://www.swpc.noaa.gov/) 
 
-## 1. Scientific Background
+#The model combines physics-based feature engineering with gradient boosted regression trees, 
+achieving realistic performance on multi-year historical data. 
+
+All the math is based off theory from the Documentation & Research, Vibes, and all verified by myself--chickens5 | 5/13/26
+
+My newell_couple.py file shows exactly how the function works in this context. 
+
+-------------------
+
 
 ### 1.1 Geomagnetic Storms and the Kp Index
 
-**Kp Index (Planetary K-index):**
+*Kp Index (Planetary K-index):*
+
 - **Range:** 0–9 (dimensionless)
-- **Definition:** 3-hourly measure of Earth's magnetospheric disturbance derived from ground-based magnetometer networks
+
+- **Definition:** KP index refers to the 3-hourly measure of disturbance in Earth's magnetosphere derived from ground-based magnetometer networks.
+
+We take the Speed (V) Proton Density (N)  Interplanetary Magnetic Field (IMF) and Temperature/Pressure and use it with Newells Coupling function to 
+
 - **Source:** NOAA Space Weather Prediction Center (SWPC), calculated from 13 magnetometer stations
 - **Physical meaning:** Represents the energy input from the solar wind into Earth's magnetosphere
 
