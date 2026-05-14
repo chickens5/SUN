@@ -352,114 +352,10 @@ X_test = X[split:]          # Last 25% (future relative to training)
 - **Extended range (6–10 days):** Depends on solar cycle forecasts
 - **This model's niche:** 1–3 day guidance; combines observational data with physically-motivated uncertainty
 
----
 
 ## 4. Code-Level Mathematical Explanations
 
-### 4.1 Feature Engineering in Code
-
-```python
-# ============================================================
-# NEWELL COUPLING FUNCTION (Newell et al. 2007)
-# ============================================================
-
-def newell_coupling(speed_kms, bt_nT, by_nT, bz_nT):
-    """
-    Compute the Newell solar wind-magnetosphere coupling proxy.
-    
-    Physics:
-    --------
-    dΦ/dt ≈ V^(4/3) * B_t^(2/3) * sin^(8/3)(θ/2)
-    
-    where:
-    - V = solar wind speed (km/s)
-    - B_t = total IMF magnitude (nT)
-    - θ = IMF clock angle = arctan2(|B_y|, B_z) [radians]
-    - dΦ/dt = effective magnetic reconnection rate [mV/m scale]
-    
-    Parameters:
-    -----------
-    speed_kms : float or array
-        Solar wind speed in km/s (typical 300–700)
-    
-    bt_nT : float or array
-        Total IMF magnitude in nanoTesla (typical 2–10)
-    
-    by_nT : float or array
-        IMF By component in nT (controls clock angle)
-    
-    bz_nT : float or array
-        IMF Bz component in nT (critical; southward < 0 drives storms)
-    
-    Returns:
-    --------
-    coupling : float or array
-        Effective coupling strength [arbitrary units; correlation with Kp ~0.75]
-    
-    Example Calculation:
-    --------------------
-    If V=500 km/s, B_t=5 nT, By=1 nT, Bz=-3 nT:
-    
-    theta = arctan2(|1|, -3) = arctan2(1, -3) ≈ 2.82 rad (~162°)
-    # This is almost southward; clock angle near 180°
-    
-    coupling = 500^(4/3) * 5^(2/3) * sin(2.82/2)^(8/3)
-             = 500^1.333 * 5^0.667 * sin(1.41)^2.667
-             ≈ 3520 * 2.41 * 0.87  [numerical example]
-             ≈ 7400 mV/m
-    
-    With these parameters, expect Kp ≈ 5–6 (storm threshold)
-    """
-    
-    # 1. Compute IMF clock angle: arctan2(|By|, Bz)
-    #    This angle describes the orientation of the IMF vector in the Y-Z plane.
-    #    - θ ≈ 0°:   IMF pointing North (positive Bz); no reconnection
-    #    - θ ≈ 90°:  IMF purely East-West (By dominates)
-    #    - θ ≈ 180°: IMF pointing South (negative Bz); maximum reconnection
-    theta = np.arctan2(np.abs(by_nT), bz_nT)
-    
-    # 2. Compute coupling function as per Newell et al. (2007)
-    #    Each power is empirically derived:
-    #
-    #    speed ** (4/3):
-    #    - Linear in kinetic energy would be power 1
-    #    - But nonlinear magnetospheric compression physics
-    #    - 4/3 found empirically to best correlate with Kp
-    #    - Physically: between linear (open field) and quadratic (closed)
-    #
-    #    bt ** (2/3):
-    #    - Reconnection rate scales with field strength
-    #    - 2/3 power chosen empirically
-    #    - Reflects that stronger fields enable faster reconnection
-    #
-    #    sin(theta/2) ** (8/3):
-    #    - Determines how efficiently IMF couples to magnetosphere
-    #    - sin(θ/2=90°) = 1 (maximum at θ=180°, southward IMF)
-    #    - sin(θ/2=0°) = 0 (zero at θ=0°, northward IMF)
-    #    - 8/3 power makes this dependence sharp: small changes in angle matter
-    
-    coupling = (speed_kms ** (4/3)) * (bt_nT ** (2/3)) * (np.sin(theta/2) ** (8/3))
-    
-    return coupling
-
-# Mathematical intuition:
-# -----------------------
-# Each factor addresses a coupling mechanism:
-#
-# V^(4/3):        MORE WIND → MORE COMPRESSION
-#                 Faster wind compresses magnetosphere, injects more energy
-#
-# B_t^(2/3):      STRONGER FIELD → FASTER RECONNECTION
-#                 Bigger B means stronger force on particles; faster energy release
-#
-# sin^(8/3)(θ/2): GEOMETRY MATTERS
-#                 Southward Bz (θ≈180°) directly couples to Earth's northward dipole
-#                 Northward Bz (θ≈0°) doesn't couple; energy bounces off
-```
-
----
-
-### 4.2 Gradient Boosting Regression in Code
+### 4.1 Gradient Boosting Regression in Code
 
 ```python
 # ============================================================
@@ -612,7 +508,7 @@ y_pred = model.predict(X_test)
 
 ---
 
-### 4.3 Feature Importance Calculation
+### 4.2 Feature Importance Calculation
 
 ```python
 # ============================================================
@@ -749,6 +645,6 @@ feature_importances = model.feature_importances_
 
 ---
 
-**Last Updated:** May 2026  
+**Last Updated:** May 13 2026  
 **Notebook Version:** 600+ lines  
-**Code License:** MIT (open source)
+**Code License:** UMSL (Open-Source)
