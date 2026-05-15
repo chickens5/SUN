@@ -1,20 +1,62 @@
-#!/usr/bin/env python
-# coding: utf-8
+#Good Day to you kind person.
 
-# # Geomagnetic Storm Predictor
+#~ Gabe | chickens5
+
+#UMSL | Class of 2026 | Computer Science
+
+
+#This python file, generated from our notebook, is a ML application that generates forecasts...
+    #disturbances of Earth's magnetosphere to help prove coupling functions and understand the relations of solar wind and planetary 
+        #mangetospheric interactinos for the sake of space weather forecasting, research
+            #and most importantly-- space travel.
+            # 
+            # Newell's coupling function in our ML application provides the hierarchical structure of the solar wind-magnetosphere coupling,
+            #  which is crucial for understanding and predicting space weather phenomena. 
+
+            # By incorporating this function into our model, we can capture the complex interactions between solar wind parameters 
+            # #and their impact on Earth's magnetosphere, leading to more accurate forecasts of geomagnetic storms and their potential 
+            # effects on satellite operations, communication systems, and power grids. This approach not only enhances our predictive
+            #  capabilities but also contributes to the broader scientific understanding of space weather dynamics.
+            
+#Okay, lets get to the code:
+
+#Open terminal and create virtual enviornment to ensure your machine doesn't have any dependency conflicts
+
+#  python -m venv venv      
+
+#    .\venv\Scripts\activate
+
+#    pip install numpy pandas matplotlib scikit-learn scipyg
+
+#          :p bleeeeeggghhhh
+
+# Now, welcoome to Gabe's Geomagnetic Storm Predictor (GGSP)
 # 
-# A small-scale ML application that predicts the **planetary Kp index** — the global measure of geomagnetic storm intensity — from real-time solar wind observations.
+# We predict the **planetary Kp index (global measure of geomagnetic storm intensity)**  from real-time solar wind observations
+    #--from NOAA and the OmniDataset, using a gradient-boosted regression model trained on multi-year data.
+        #We don't use any other models because the interactions involved with solar wind and the magnetosphere
+            #are highly nonlinear, which means our model is able to capture complex relationships between solar wind parameters and Kp.
+
+# **Why this matters.** Kp drives auroras, GPS errors, satellite drag, and power-grid risk.
+#  Carrignton level events haven't happened in over a century, but who knows what's to come? 
+
+# NOAA SWPC publishes the upstream solar wind in near-real-time from the DSCOVR spacecraft (~1.5 million km sunward of Earth),
+#  giving roughly 30–60 minutes of warning before the plasma actually hits the magnetosphere. 
+
+        # That gap is exactly where ML lives.
 # 
-# **Why this matters.** Kp drives auroras, GPS errors, satellite drag, and power-grid risk. NOAA SWPC publishes the upstream solar wind in near-real-time from the DSCOVR spacecraft (~1.5 million km sunward of Earth), giving roughly 30–60 minutes of warning before the plasma actually hits the magnetosphere. That gap is exactly where ML lives.
-# 
-# **Approach.** Pull three live JSON feeds from NOAA SWPC, align them on a common time grid, engineer a handful of physics-motivated features, and train a gradient-boosted regressor to predict Kp.
+# **Approach.** Pull three live JSON feeds from NOAA SWPC,
+#  align them on a common time grid (UTC), engineer a handful of physics-motivated features (mainly Newells function + basic solar wind parameters),
+#    and train a gradient-boosted regressor to predict Kp.
 # 
 # **Data sources** (all public, no API key):
 # - `plasma-7-day.json` — solar wind density, speed, temperature
 # - `mag-7-day.json` — interplanetary magnetic field components (Bx, By, **Bz**, Bt) in GSM coordinates
 # - `noaa-planetary-k-index.json` — observed Kp, our target
 # 
-# > **Note.** Kp is reported every 3 hours and only 7 days of history are available from the real-time feed, so this is a *demo-scale* model — meant to show the pipeline, not beat operational forecasts. The same code scales cleanly to a multi-decade OMNI dataset for real research.
+# > **Note.** Kp is reported every 3 hours and only 7 days of history are available from the real-time feed, so this is a *demo-scale* model 
+        # meant to show the pipeline, not beat operational forecasts.
+#  The same code scales cleanly to a multi-decade OMNI dataset for real research.
 
 # In[87]:
 
