@@ -2,6 +2,8 @@
 
 *Hey howz ya dooin---- thanks for visitin*
 
+*The React frontend can be found here: [chickens5.github.io/](https://chickens5.github.io/barista/)
+
 **UMSL · Class of 2026 · Computer Science · chickens5**
 
 Predicts the **planetary Kp index** (0–9 scale of geomagnetic storm intensity) from real-time
