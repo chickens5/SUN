@@ -11,7 +11,7 @@ All the math is based off theory from the Documentation & Research, Vibes, and a
 
 My newell_couple.py file shows exactly how the function works in this context. 
 
-#The data can be analyzed from our static frontend here: [https://chickens5.github.io/barista/](url)
+#The data can be analyzed from our static frontend here: https://chickens5.github.io/barista/
 
 -------------------
 
