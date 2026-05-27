@@ -1,8 +1,7 @@
-<<<<<<< HEAD
 #~Gabe J~ | UMSL 26' | Computer Science | 
 
 #Welcome to GGSP-7.0.py!  
-=======
+
 #Good Day to you kind person.
 
 #~ Gabe | chickens5
@@ -10,10 +9,11 @@
 #UMSL | Class of 2026 | Computer Science
 
 
-#This python file, generated from our notebook, is a ML application that generates forecasts...
-    #disturbances of Earth's magnetosphere to help prove coupling functions and understand the relations of solar wind and planetary 
-        #mangetospheric interactinos for the sake of space weather forecasting, research
-            #and most importantly-- space travel.
+#This python file, generated from our notebook, helps us predict the **planetary Kp index (global measure of geomagnetic storm intensity)**  
+# from real-time solar wind observations--from NOAA and the OmniDataset, using a gradient-boosted regression model trained on multi-year data.
+
+        #We don't use any other models because the interactions involved with solar wind and the magnetosphere
+            #are highly nonlinear, which means our model is able to capture complex relationships between solar wind parameters and Kp.
             # 
             # Newell's coupling function in our ML application provides the hierarchical structure of the solar wind-magnetosphere coupling,
             #  which is crucial for understanding and predicting space weather phenomena. 
@@ -35,8 +35,8 @@
 
 #          :p bleeeeeggghhhh
 
-# Now, welcoome to Gabe's Geomagnetic Storm Predictor (GGSP)
-# 
+
+
 # We predict the **planetary Kp index (global measure of geomagnetic storm intensity)**  from real-time solar wind observations
     #--from NOAA and the OmniDataset, using a gradient-boosted regression model trained on multi-year data.
         #We don't use any other models because the interactions involved with solar wind and the magnetosphere
@@ -49,6 +49,8 @@
 #  giving roughly 30–60 minutes of warning before the plasma actually hits the magnetosphere. 
 
         # That gap is exactly where ML lives.
+
+
 # 
 # **Approach.** Pull three live JSON feeds from NOAA SWPC,
 #  align them on a common time grid (UTC), engineer a handful of physics-motivated features (mainly Newells function + basic solar wind parameters),
@@ -58,18 +60,14 @@
 # - `plasma-7-day.json` — solar wind density, speed, temperature
 # - `mag-7-day.json` — interplanetary magnetic field components (Bx, By, **Bz**, Bt) in GSM coordinates
 # - `noaa-planetary-k-index.json` — observed Kp, our target
-# 
-# > **Note.** Kp is reported every 3 hours and only 7 days of history are available from the real-time feed, so this is a *demo-scale* model 
-        # meant to show the pipeline, not beat operational forecasts.
-#  The same code scales cleanly to a multi-decade OMNI dataset for real research.
->>>>>>> 5962a2e04eb55cd8aaa9237d1436874ed3f17a3a
+
+
 
  #           <o
 #               > 3
 #            <o
 
 
-    #This is the entry point for the GGSP data pipeline, which is where we perform all the data processing, modeling, and forecasting steps.
 
     # *Important*
 
@@ -113,6 +111,7 @@ def main():
     parser.add_argument("--start-year", type=int, default=2020, help="OMNI start year")
     parser.add_argument("--years", type=int, default=5, help="Number of OMNI years to use")
     parser.add_argument("--train-frac", type=float, default=0.75, help="Chronological train split fraction")
+    parser.add_argument("--json-out", type=str, default=None, metavar="PATH", help="Write pipeline results to a JSON file (e.g. ggsp_output.json)")
     args = parser.parse_args()
 
     #If you decide to use CLI, this is where the PipelineConfig class is instantiated with OMNI parameters.
@@ -124,7 +123,7 @@ def main():
 
     #Then, the pipeline is executed with the specified configuration and plot settings.
 
-    results = run_pipeline(config=config, make_plots=not args.no_plots)
+    results = run_pipeline(config=config, make_plots=not args.no_plots, json_output_path=args.json_out)
 
     print("=== GGSP Pipeline Summary ===")
     print(f"NOAA source: {results['sources']['noaa']}")
