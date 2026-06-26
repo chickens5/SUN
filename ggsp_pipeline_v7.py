@@ -15,7 +15,8 @@ from typing import Dict, Tuple
 import json
 import time
 import urllib.request
-from xml.parsers.expat import model
+# (removed stale 'from xml.parsers.expat import model' — that imported XML DTD constants,
+#  not an ML model; the actual sklearn Pipeline model is built inside fit_and_evaluate_model())
 #We import dataclasses to define a simple configuration class for the pipeline, and typing for type hints to improve code clarity.
 #Also, we need typing, json, and urllib to handle data fetching and parsing from the NOAA and OMNI sources.
 
@@ -196,9 +197,57 @@ def load_noaa_data(config: PipelineConfig):
         if kp_df.empty:
             raise RuntimeError("NOAA Kp parsed successfully but produced no valid rows")
 
+        _sanity_check_noaa(plasma_df, mag_df, kp_df)
         return plasma_df, mag_df, kp_df, "live_noaa"
+    except RuntimeError:
+        raise
     except Exception as exc:
         raise RuntimeError(f"Failed to load NOAA live data: {exc}") from exc
+
+
+def _sanity_check_noaa(
+    plasma_df: pd.DataFrame,
+    mag_df: pd.DataFrame,
+    kp_df: pd.DataFrame,
+) -> None:
+    """Warn about stale or sparse NOAA feeds."""
+    import sys
+    now = pd.Timestamp.utcnow()
+
+    for name, df in (("plasma", plasma_df), ("mag", mag_df), ("kp", kp_df)):
+        if df.empty:
+            raise RuntimeError(
+                f"NOAA '{name}' feed parsed successfully but returned zero rows. "
+                "The feed may be temporarily empty — try again in a few minutes."
+            )
+        latest_ts = df.index.max()
+        age_hours = (now - latest_ts).total_seconds() / 3600
+        if age_hours > 6:
+            print(
+                f"[WARNING] NOAA '{name}' feed: most recent data is "
+                f"{age_hours:.1f} hours old (expected ≤6 h for DSCOVR feeds). "
+                "Real-time inference may be using stale solar wind conditions.",
+                file=sys.stderr,
+            )
+
+    # Speed sanity: DSCOVR/ACE typically sees 250–900 km/s; values outside this range
+    # in the 1-minute feed indicate sensor noise or a fill value that wasn't caught.
+    if "speed" in plasma_df.columns:
+        speed_vals = plasma_df["speed"].dropna()
+        if len(speed_vals) > 0:
+            spd_min, spd_max = speed_vals.min(), speed_vals.max()
+            if spd_min < 100 or spd_max > 2000:
+                print(
+                    f"[WARNING] NOAA plasma speed out of physical range: "
+                    f"min={spd_min:.0f}, max={spd_max:.0f} km/s. "
+                    "Suspect fill values may remain in the feed.",
+                    file=sys.stderr,
+                )
+
+    print(
+        f"[OK] NOAA: plasma={len(plasma_df)} rows, "
+        f"mag={len(mag_df)} rows, kp={len(kp_df)} rows"
+    )
 #Below is a new feature that creates a 3 hour aggregated feature set from
 #  the raw 1-minute NOAA plasma and magnetic field data, 
 # which is necessary to align with the 3-hourly OMNI data 
@@ -416,7 +465,53 @@ def load_omni_data(config: PipelineConfig):
     # Drop the first 3 rows that have no lag history after shifting.
     omni_3h = omni_3h.dropna()
 
+    _sanity_check_omni(omni_3h, config)
     return omni_3h, source
+
+
+def _sanity_check_omni(omni_3h: pd.DataFrame, config: PipelineConfig) -> None:
+    """Raise RuntimeError or print warnings for suspicious OMNI data."""
+    import sys
+    n = len(omni_3h)
+    # Each year should contribute ~2,900 3-hour rows (8,760 hours / 3).  A year with
+    # extensive data gaps produces far fewer. If total rows are fewer than 700 × years
+    # the training set is likely too sparse to learn anything meaningful.
+    min_expected = 700 * config.omni_num_years
+    if n < min_expected:
+        raise RuntimeError(
+            f"OMNI data sanity check failed: only {n} 3-hour samples after cleaning "
+            f"(expected ≥{min_expected} for {config.omni_num_years} years). "
+            "The requested year range may have extensive data gaps or the SPDF server "
+            "returned partial files. Try a different --start-year or --years value."
+        )
+
+    # Warn about any feature column that is NaN-heavy after the final dropna().
+    # If dropna removed too many rows some columns may have been sparsely populated
+    # before cleaning — flag it so the user knows the model saw reduced coverage.
+    required_cols = ["speed_mean", "density_mean", "by_mean", "bz_mean", "bz_min",
+                     "bt_mean", "coupling_mean", "p_dyn_mean", "kp_lag_3h", "Kp"]
+    for col in required_cols:
+        if col not in omni_3h.columns:
+            raise RuntimeError(
+                f"OMNI feature column '{col}' is missing after processing. "
+                "This likely means the OMNI .dat column layout has changed or an "
+                "incorrect --start-year was used (pre-1978 files lack some columns)."
+            )
+
+    # Kp range sanity — OMNI stores raw Kp*10 and we divide by 10; valid range is 0.0–9.0
+    kp_min, kp_max = omni_3h["Kp"].min(), omni_3h["Kp"].max()
+    if kp_max > 9.5 or kp_min < 0.0:
+        print(
+            f"[WARNING] OMNI Kp values out of expected range [0, 9]: "
+            f"min={kp_min:.2f}, max={kp_max:.2f}. Check OMNI column mapping.",
+            file=sys.stderr,
+        )
+
+    print(
+        f"[OK] OMNI: {n} 3-hour samples, "
+        f"{config.omni_start_year}–{config.omni_start_year + config.omni_num_years - 1}, "
+        f"Kp range [{kp_min:.1f}, {kp_max:.1f}]"
+    )
 
 
 # FEATURE_COLUMNS defines the exact ordered set of inputs the model is trained and inferred on.
@@ -443,8 +538,29 @@ FEATURE_COLUMNS = [
 
 def fit_and_evaluate_model(data_3h: pd.DataFrame, config: PipelineConfig):
     """Train gradient boosting model with chronological split and return metrics."""
-    if len(data_3h) < 24:
-        raise ValueError("Not enough aligned samples for training.")
+    import sys
+
+    # Need at minimum: 24 rows to train + 8 rows to test (8 × 3h = 24h of evaluation)
+    if len(data_3h) < 32:
+        raise ValueError(
+            f"Not enough aligned 3-hour samples for training: only {len(data_3h)} rows. "
+            "At least 32 rows (~4 days) are required. "
+            "Use a wider --years range or check for data-quality issues in OMNI."
+        )
+
+    # Ensure every required feature column is present with no all-NaN column
+    missing = [c for c in FEATURE_COLUMNS if c not in data_3h.columns]
+    if missing:
+        raise ValueError(
+            f"OMNI training frame is missing feature columns: {missing}. "
+            "This indicates a mismatch between the OMNI parser and FEATURE_COLUMNS."
+        )
+    all_nan = [c for c in FEATURE_COLUMNS if data_3h[c].isna().all()]
+    if all_nan:
+        raise ValueError(
+            f"These feature columns are entirely NaN after OMNI processing: {all_nan}. "
+            "Check the OMNI column-index mapping in _parse_omni2_yearly_line()."
+        )
 
     split_idx = int(config.train_fraction * len(data_3h))
     split_idx = max(1, min(split_idx, len(data_3h) - 1))
@@ -477,6 +593,27 @@ def fit_and_evaluate_model(data_3h: pd.DataFrame, config: PipelineConfig):
         "baseline_mae": float(mean_absolute_error(y_test, baseline)),
         "test_count": int(len(y_test)),
     }
+
+    # Post-fit sanity checks — catch degenerate models before the forecast runs
+    if metrics["r2"] < 0.0:
+        print(
+            f"[WARNING] Model R²={metrics['r2']:.3f} is negative (worse than always predicting "
+            f"the mean Kp). Training samples: {len(y_train)}, test samples: {len(y_test)}. "
+            "Consider a wider --years window or check OMNI data quality.",
+            file=__import__("sys").stderr,
+        )
+    elif metrics["mae"] > 2.0:
+        print(
+            f"[WARNING] Model MAE={metrics['mae']:.3f} is unexpectedly high. "
+            "Typical well-fitted models score MAE < 0.7 on multi-year data.",
+            file=__import__("sys").stderr,
+        )
+    else:
+        improvement = 100.0 * (1.0 - metrics["mae"] / metrics["baseline_mae"]) if metrics["baseline_mae"] > 0 else 0.0
+        print(
+            f"[OK] Model: MAE={metrics['mae']:.3f}  R²={metrics['r2']:.3f}  "
+            f"({improvement:.1f}% over baseline)  test_n={metrics['test_count']}"
+        )
 
     test_frame = pd.DataFrame({"Kp_true": y_test, "Kp_pred": y_pred}, index=data_3h.index[split_idx:])
     return model, metrics, test_frame

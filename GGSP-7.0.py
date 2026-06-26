@@ -98,61 +98,215 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
+from datetime import datetime
 
 from ggsp_pipeline_v7 import PipelineConfig, run_pipeline      #Importing Pipelineconfig(run_pipeline()) from ggsp_pipeline.py
+
+# OMNI2 data begins in 1963; requesting earlier years returns empty .dat files
+OMNI_FIRST_YEAR = 1963
+# Leave at least the current partial year as uncommitted data (fetching the present year
+# mid-run can produce partial rows that skew the training chronology)
+CURRENT_YEAR = datetime.utcnow().year
+OMNI_LAST_SAFE_YEAR = CURRENT_YEAR - 1
+
+
+def validate_args(args: argparse.Namespace) -> list[str]:
+    """Return a list of human-readable error strings; empty list means all checks passed."""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    # ── start-year range ──────────────────────────────────────────────────────
+    if args.start_year < OMNI_FIRST_YEAR:
+        errors.append(
+            f"--start-year {args.start_year} is before OMNI2 coverage begins ({OMNI_FIRST_YEAR}). "
+            f"The SPDF server has no data for years prior to {OMNI_FIRST_YEAR}."
+        )
+    if args.start_year > OMNI_LAST_SAFE_YEAR:
+        errors.append(
+            f"--start-year {args.start_year} is in the future or the current year. "
+            f"Latest safe start year is {OMNI_LAST_SAFE_YEAR} (current year data may be incomplete)."
+        )
+
+    # ── years count ───────────────────────────────────────────────────────────
+    if args.years < 1:
+        errors.append(f"--years must be at least 1 (got {args.years}).")
+
+    end_year = args.start_year + args.years - 1
+    if args.start_year >= OMNI_FIRST_YEAR and end_year > OMNI_LAST_SAFE_YEAR:
+        # Trim silently would be confusing; warn and let the pipeline attempt it —
+        # SPDF will just return short/empty files for future years
+        warnings.append(
+            f"--start-year {args.start_year} + --years {args.years} extends to {end_year}, "
+            f"but OMNI2 data is only confirmed through {OMNI_LAST_SAFE_YEAR}. "
+            f"Years beyond {OMNI_LAST_SAFE_YEAR} may be missing or partial — "
+            f"consider reducing --years to {OMNI_LAST_SAFE_YEAR - args.start_year + 1}."
+        )
+
+    # ── too few years = weak model ─────────────────────────────────────────────
+    if 1 <= args.years < 2:
+        warnings.append(
+            f"--years {args.years} gives only ~2,900 3-hour OMNI samples (1 year). "
+            "The model may underfit on a single solar-rotation cycle. "
+            "Recommend --years 3 or more for stable training."
+        )
+
+    # ── train-frac ────────────────────────────────────────────────────────────
+    if not (0.5 <= args.train_frac <= 0.95):
+        errors.append(
+            f"--train-frac {args.train_frac} is outside the accepted range [0.50, 0.95]. "
+            "Values below 0.50 leave too few training samples; above 0.95 leaves too few test samples "
+            "for meaningful evaluation."
+        )
+
+    # ── json-out path ─────────────────────────────────────────────────────────
+    if args.json_out is not None:
+        out_dir = os.path.dirname(os.path.abspath(args.json_out))
+        if not os.path.isdir(out_dir):
+            errors.append(
+                f"--json-out directory does not exist: '{out_dir}'. "
+                "Create the directory first or use a path inside an existing folder."
+            )
+        if not args.json_out.endswith(".json"):
+            warnings.append(
+                f"--json-out '{args.json_out}' has no .json extension. "
+                "The React frontend expects a .json file — consider adding the extension."
+            )
+
+    # Print warnings (non-fatal) before returning errors
+    for w in warnings:
+        print(f"[WARNING] {w}", file=sys.stderr)
+
+    return errors
 
 
 def main():
 
-    #First, we set up CLI parser arguments to allow different configurations when running the pipeline.
-
-    parser = argparse.ArgumentParser(description="Geomagnetic Storm Prediction Pipeline")
-    parser.add_argument("--no-plots", action="store_true", help="Skip matplotlib plots")
-    parser.add_argument("--start-year", type=int, default=2020, help="OMNI start year")
-    parser.add_argument("--years", type=int, default=5, help="Number of OMNI years to use")
-    parser.add_argument("--train-frac", type=float, default=0.75, help="Chronological train split fraction")
-    parser.add_argument("--json-out", type=str, default=None, metavar="PATH", help="Write pipeline results to a JSON file (e.g. ggsp_output.json)")
+    parser = argparse.ArgumentParser(
+        description="Geomagnetic Storm Prediction Pipeline (GGSP-7.0)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python GGSP-7.0.py                                        # default: 2020, 5 years\n"
+            "  python GGSP-7.0.py --start-year 1990 --years 32           # SC22–SC24 training window\n"
+            "  python GGSP-7.0.py --no-plots --json-out ggsp_output.json # headless + React export\n"
+            f"\nOMNI data range: {OMNI_FIRST_YEAR}–{OMNI_LAST_SAFE_YEAR}"
+        ),
+    )
+    parser.add_argument("--no-plots", action="store_true", help="Skip matplotlib plots (headless mode)")
+    parser.add_argument(
+        "--start-year", type=int, default=2020,
+        help=f"First year of OMNI training data (must be {OMNI_FIRST_YEAR}–{OMNI_LAST_SAFE_YEAR}, default: 2020)",
+    )
+    parser.add_argument(
+        "--years", type=int, default=5,
+        help="Number of consecutive OMNI years to load (default: 5)",
+    )
+    parser.add_argument(
+        "--train-frac", type=float, default=0.75,
+        help="Fraction of OMNI data used for training vs. test (0.50–0.95, default: 0.75)",
+    )
+    parser.add_argument(
+        "--json-out", type=str, default=None, metavar="PATH",
+        help="Write pipeline results to a JSON file for React consumption (e.g. ggsp_output.json)",
+    )
     args = parser.parse_args()
 
-    #If you decide to use CLI, this is where the PipelineConfig class is instantiated with OMNI parameters.
+    # ── Pre-run validation ────────────────────────────────────────────────────
+    errors = validate_args(args)
+    if errors:
+        print("\n[ERROR] Pipeline cannot start — fix the following issues:\n", file=sys.stderr)
+        for i, err in enumerate(errors, 1):
+            print(f"  {i}. {err}", file=sys.stderr)
+        print(
+            f"\nRun 'python GGSP-7.0.py --help' for usage.\n"
+            f"Valid OMNI years: {OMNI_FIRST_YEAR}–{OMNI_LAST_SAFE_YEAR}\n",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # ── Configuration summary ─────────────────────────────────────────────────
+    end_year = args.start_year + args.years - 1
+    print("=" * 55)
+    print("  GGSP-7.0 — Geomagnetic Storm Prediction Pipeline")
+    print("=" * 55)
+    print(f"  OMNI training window : {args.start_year}–{end_year}  ({args.years} yr)")
+    print(f"  Train/test split     : {args.train_frac:.0%} / {1 - args.train_frac:.0%}  (chronological)")
+    print(f"  Plots                : {'off (headless)' if args.no_plots else 'on'}")
+    print(f"  JSON output          : {args.json_out or 'none'}")
+    print("=" * 55)
+    print()
+
+    # ── Build config and run ──────────────────────────────────────────────────
     config = PipelineConfig(
         omni_start_year=args.start_year,
         omni_num_years=args.years,
         train_fraction=args.train_frac,
     )
 
-    #Then, the pipeline is executed with the specified configuration and plot settings.
+    try:
+        results = run_pipeline(config=config, make_plots=not args.no_plots, json_output_path=args.json_out)
+    except RuntimeError as exc:
+        # run_pipeline raises RuntimeError for recoverable data-fetch problems;
+        # print a clean message rather than a full traceback
+        print(f"\n[ERROR] Pipeline failed: {exc}", file=sys.stderr)
+        print(
+            "\nCommon causes:\n"
+            "  - NOAA SWPC feeds are temporarily unreachable (try again in a few minutes)\n"
+            "  - SPDF OMNI server timeout — try --years with a shorter window\n"
+            "  - Requested OMNI years return empty .dat files (check year range above)\n",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
-    results = run_pipeline(config=config, make_plots=not args.no_plots, json_output_path=args.json_out)
-
+    # ── Results summary ───────────────────────────────────────────────────────
     print("=== GGSP Pipeline Summary ===")
     print(f"NOAA source: {results['sources']['noaa']}")
     print(f"OMNI source: {results['sources']['omni']}")
+    counts = results["counts"]
     print(
-        "Rows: "
-        f"plasma={results['counts']['plasma_rows']}, "
-        f"mag={results['counts']['mag_rows']}, "
-        f"kp={results['counts']['kp_rows']}, "
-        f"omni_3h={results['counts']['omni_3h_rows']}"
+        f"Rows: plasma={counts['plasma_rows']}, mag={counts['mag_rows']}, "
+        f"kp={counts['kp_rows']}, omni_3h={counts['omni_3h_rows']}"
     )
 
     metrics = results["metrics"]
-    print(f"MAE={metrics['mae']:.3f} | R2={metrics['r2']:.3f} | baseline_MAE={metrics['baseline_mae']:.3f}")
+    improvement = 100.0 * (1.0 - metrics["mae"] / metrics["baseline_mae"]) if metrics["baseline_mae"] > 0 else 0.0
+    print(
+        f"Model  : MAE={metrics['mae']:.3f}  R²={metrics['r2']:.3f}  "
+        f"(baseline MAE={metrics['baseline_mae']:.3f}, {improvement:.1f}% improvement)"
+    )
+
+    # Warn if the model looks degenerate
+    if metrics["r2"] < 0.0:
+        print(
+            "[WARNING] R² is negative — the model is worse than always predicting the mean. "
+            "Try a wider training window (--years 5+) or check for data-quality issues.",
+            file=sys.stderr,
+        )
+    elif metrics["mae"] > 2.0:
+        print(
+            f"[WARNING] MAE={metrics['mae']:.3f} is unexpectedly high (>2.0 Kp). "
+            "Model may be poorly fitted — consider a wider training window.",
+            file=sys.stderr,
+        )
 
     latest = results["latest"]
     print(
-        f"Latest window {latest['time']}: predicted Kp={latest['predicted_kp']:.2f}, "
-        f"observed Kp={latest['observed_kp']:.2f}, category={latest['category']}"
+        f"Latest : {latest['time']}  predicted Kp={latest['predicted_kp']:.2f}  "
+        f"observed Kp={latest['observed_kp']:.2f}  [{latest['category']}]"
     )
 
     forecast = results["forecast"]
     print(
-        "72h weighted forecast: "
-        f"mean Kp={forecast['mean_weighted_kp']:.2f}, "
-        f"peak Kp={forecast['peak_weighted_kp']:.2f}, "
-        f"storm-window probability={forecast['storm_chance_percent']:.1f}%, "
+        f"72h    : mean Kp={forecast['mean_weighted_kp']:.2f}  "
+        f"peak Kp={forecast['peak_weighted_kp']:.2f}  "
+        f"storm chance={forecast['storm_chance_percent']:.1f}%  "
         f"seed={forecast['forecast_seed_source']}"
     )
+
+    if args.json_out:
+        print(f"JSON   : written to {os.path.abspath(args.json_out)}")
 
 
 if __name__ == "__main__":
