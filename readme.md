@@ -1,17 +1,30 @@
-﻿# GGSP — Gabe's Geomagnetic Storm Prediction Pipeline
+﻿**UMSL · Class of 2026 · Computer Science · chickens5**
+# GGSP — Gabe's Geomagnetic Storm Prediction Pipeline
 
 *Hey howz ya dooin---- thanks for visitin*
 
 *The React frontend can be found here: [chickens5.github.io/](https://chickens5.github.io/barista/)
 
-**UMSL · Class of 2026 · Computer Science · chickens5**
-
 Predicts the **planetary Kp index** (0–9 scale of geomagnetic storm intensity) from real-time
 solar wind data, using physics-based feature engineering and gradient-boosted regression.
 A companion **sunspot pipeline** forecasts the solar cycle phase and feeds a dynamic activity
-modifier back into the Kp model's scenario weights.
+modifier back into the Kp model's scenario weights. Although both features are still works in progress, the geomagnetic storm intensity
+predictor should be acceptable in how accurate / meaningful the data is.
 
 ---
+
+## Starting the Application after cloning:
+
+I recommend using Conda or
+```
+python -m venv venv      
+
+.\venv\Scripts\activate
+
+pip install numpy pandas matplotlib scikit-learn scipyg
+```
+To run the pipeline:
+python GGSP-7.0.py --start-year 1985 --years 40  --json-out urfilename.json
 
 ## How It Works — End to End
 
