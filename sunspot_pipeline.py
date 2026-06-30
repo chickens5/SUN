@@ -1,6 +1,37 @@
 # Welcome to the Sunspot Activity Prediction Pipeline!
 #
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ARCHITECTURE OVERVIEW  (sunspot_pipeline.py)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This file is a SUB-PIPELINE called automatically inside run_pipeline()
+# (ggsp_pipeline_v7.py, Task 7).  It can also run standalone from the CLI.
+#
+# Its single responsibility: answer the question
+#   "What is the current solar-cycle activity level, and how should that
+#    shift the Quiet / Moderate / Active scenario weights in GGSP?"
+#
+# Internal flow:
+#   load_sidc_data()           fetch monthly SSN v2.0 from SIDC Brussels
+#       │
+#   build_features()           13 lag + rolling + Fourier features
+#       │
+#   fit_and_evaluate_model()   GBR trained on historical SSN (1-step-ahead)
+#       │
+#   forecast_ssn()             recursive 12-month SSN forecast
+#       │
+#   compute_cycle_phase()      storm_rate_modifier, F10.7 proxy, tier
+#       │
+#   _compute_adjusted_weights() → {"Quiet": w1, "Moderate": w2, "Active": w3}
+#       │
+#   returned to run_pipeline() as ggsp_integration["recommended_scenario_weights"]
+#
+# The storm_rate_modifier maps [solar min → solar max] to [0.4 → 1.6],
+# scaling the Active scenario weight up/down and renormalising the others.
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
 
 ## Quick test
 #python sunspot_pipeline.py --no-plots
