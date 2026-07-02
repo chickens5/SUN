@@ -53,6 +53,86 @@ from sklearn.metrics import mean_absolute_error, r2_score
 # ── Core metric functions ──────────────────────────────────────────────────────
 
 
+def diebold_mariano_test(
+    model_errors: np.ndarray,
+    persistence_errors: np.ndarray,
+) -> dict:
+    """Diebold-Mariano (1995) test: is the model significantly more accurate than persistence?
+
+    Why do we need this?
+      Reporting skill_ratio = 0.699 tells you the model's MAE is 30% lower than
+      persistence, but it doesn't tell you whether that improvement is statistically
+      significant or just a lucky run.  The DM test gives you a p-value.
+
+    How it works:
+      1. Form the loss differential: d(t) = e1(t)^2 - e2(t)^2
+         where e1 = model errors, e2 = persistence errors.
+      2. Test H0: E[d] = 0 (equal forecast accuracy).
+         H1 (one-sided): E[d] < 0 (model is MORE accurate than persistence).
+      3. Compute the DM statistic using a Newey-West HAC variance with n_lags=3
+         (= 9h of 3h data) to account for autocorrelation in d(t).
+      4. Under H0, DM ~ N(0,1) asymptotically.
+
+    With N ≈ 3,000+ test rows (5yr window), the normal approximation is excellent.
+
+    Parameters
+    ----------
+    model_errors      : model residuals on the test set  (y_true - y_pred)
+    persistence_errors: persistence residuals on the same set (y_true - kp_lag_3h)
+
+    Returns
+    -------
+    dict with dm_statistic, p_value, significant_p05, verdict
+    """
+    from scipy import stats as _stats
+
+    # Loss differential using squared errors (standard DM choice).
+    d = model_errors ** 2 - persistence_errors ** 2
+    n = len(d)
+    if n < 10:
+        return {
+            "dm_statistic": float("nan"),
+            "p_value":       float("nan"),
+            "n":             n,
+            "significant_p05": False,
+            "verdict": "insufficient data for DM test (n < 10)",
+        }
+
+    d_mean = float(np.mean(d))
+
+    # Newey-West HAC variance: accounts for autocorrelation in d(t).
+    # We use n_lags = 3 to cover the 3h/6h/9h Kp autocorrelation range.
+    # The Bartlett kernel weight w_j = 1 - j/(n_lags+1) downweights distant lags.
+    n_lags  = 3
+    gamma_0 = float(np.var(d, ddof=1))
+    hac_var = gamma_0
+    for lag in range(1, n_lags + 1):
+        gamma_lag = float(np.mean(
+            (d[lag:] - d_mean) * (d[:-lag] - d_mean)
+        ))
+        bartlett_weight = 1.0 - lag / (n_lags + 1)
+        hac_var += 2.0 * bartlett_weight * gamma_lag
+    hac_var = max(hac_var, 1e-12)   # prevent division by zero
+
+    dm_stat = d_mean / (hac_var / n) ** 0.5
+
+    # One-sided p-value: P(Z < DM).  Negative DM means model MAE < persistence MAE.
+    p_value = float(_stats.norm.cdf(dm_stat))
+    significant = bool(p_value < 0.05)
+
+    return {
+        "dm_statistic":    round(float(dm_stat), 4),
+        "p_value":         round(p_value, 4),
+        "n":               n,
+        "significant_p05": significant,
+        "verdict": (
+            "model is significantly more accurate than persistence (p<0.05)"
+            if significant else
+            "improvement over persistence is NOT significant at p=0.05"
+        ),
+    }
+
+
 def persistence_baseline(y_true: np.ndarray, kp_lag: np.ndarray) -> dict:
     """Persistence: predict Kp(t) = Kp(t−3h).
 
@@ -224,6 +304,11 @@ def print_evaluation_report(
     cats  = categorical_scores(y_true, y_pred)
     reltab = reliability_table(y_true, y_pred)
 
+    # Diebold-Mariano significance test (new in ggsp refactor).
+    model_errs       = y_true - y_pred
+    persistence_errs = y_true - kp_lag_3h
+    dm = diebold_mariano_test(model_errs, persistence_errs)
+
     verdict = (
         "YES ✓ model beats persistence"
         if skill["beats_persistence"]
@@ -246,6 +331,12 @@ def print_evaluation_report(
     print(f"  ΔR²                  : {skill['delta_r2']:+.4f}  (> 0 = model beats persistence)", file=file)
     print(f"  Verdict              : {verdict}", file=file)
     print("", file=file)
+    print("  ── Diebold-Mariano Significance Test ────────────────────────", file=file)
+    print(f"  DM statistic         : {dm['dm_statistic']:.4f}  (negative = model better)", file=file)
+    print(f"  p-value (one-sided)  : {dm['p_value']:.4f}", file=file)
+    print(f"  n (test rows)        : {dm['n']}", file=file)
+    print(f"  Result               : {dm['verdict']}", file=file)
+    print("", file=file)
     print("  ── Storm-Event Metrics (Kp ≥ 5) ────────────────────────────", file=file)
     if storm["n_storm"] == 0:
         print("  (no storm events in the test window — G1+ metrics unavailable)", file=file)
@@ -265,6 +356,7 @@ def print_evaluation_report(
         "skill":       skill,
         "storm":       storm,
         "categorical": cats,
+        "diebold_mariano": dm,
     }
 
 

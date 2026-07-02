@@ -37,7 +37,7 @@
 #   eval/evaluate.py       ← Stage 5: persistence baseline + DM test
 #
 # ═══════════════════════════════════════════════════════════════════════════════
-
+"""
 import sys
 import os
 
