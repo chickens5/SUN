@@ -1,5 +1,7 @@
-﻿**UMSL · Class of 2026 · Computer Science · chickens5**
+# UPDATE 7/6/26 ~ The NOAA SWPC feeds are temporarily unreachable (perhaps b/c of holiday weekend) and if not back by midweek, i will adjust endpoints/data pipeline
+ **UMSL · Class of 2026 · Computer Science · chickens5**
 # GGSP — Gabe's Geomagnetic Storm Prediction Pipeline
+
 
 *Hey howz ya dooin---- thanks for visitin*
 
