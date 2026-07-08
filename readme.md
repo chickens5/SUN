@@ -1,4 +1,5 @@
-# UPDATE 7/6/26 ~ The NOAA SWPC feeds are temporarily unreachable (perhaps b/c of holiday weekend) and if not back by midweek, i will adjust endpoints/data pipeline
+# UPDATE 7/7/26 ~ The NOAA feeds the pipeline relies on are deprecated: https://www.weather.gov/media/notification/pdf_2026/scn26-21_Data_Format_Changes_Impacting_SWPC_Products.pdf
+    ~ Pipeline will need to be refactored to use SOLAR1 data
  **UMSL · Class of 2026 · Computer Science · chickens5**
 # GGSP — Gabe's Geomagnetic Storm Prediction Pipeline
 
