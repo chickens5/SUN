@@ -56,7 +56,7 @@ from .forecast import (
     predict_scenario_kp_ensemble, weighted_ensemble,
 )
 from .model import fit_and_evaluate_model
-from .noaa_client import load_noaa_data
+from .noaa_client import build_offline_conditions, load_noaa_data
 from .omni_client import load_omni_data
 from .physics import kp_label
 from .viz import plot_forecast, plot_test_results
@@ -68,6 +68,8 @@ def run_pipeline(
     json_output_path: str | None = None,
     refit: bool = False,
     static_weights: bool = False,
+    offline_mode: bool = False,
+    offline_conditions: dict | None = None,
 ) -> dict:
     """Orchestrate end-to-end data → model → forecast → export workflow.
 
@@ -78,6 +80,13 @@ def run_pipeline(
     json_output_path : If given, write the serialised outputs to this .json file.
     refit            : Force model retraining even if a valid cache exists.
     static_weights   : Skip the sunspot cycle modifier; use config.scenario_weights.
+    offline_mode     : If True, skip the live NOAA SWPC fetch and build synthetic
+                       DataFrames from ``offline_conditions`` instead.  Useful when
+                       NOAA feeds are temporarily unavailable.
+    offline_conditions : Dict of solar-wind values used when ``offline_mode=True``.
+                       Keys: speed (km/s), density (cm⁻³), bz (nT), by (nT),
+                       bt (nT), kp.  Any omitted key falls back to quiet-day
+                       defaults (see noaa_client.OFFLINE_DEFAULTS).
 
     Returns
     -------
@@ -86,8 +95,28 @@ def run_pipeline(
     cfg = config or PipelineConfig()
     rng = np.random.default_rng(cfg.random_state)
 
-    # ── Stage 1: NOAA live data ────────────────────────────────────────────────
-    plasma_df, mag_df, kp_df, noaa_source = load_noaa_data(cfg)
+    # ── Stage 1: NOAA live data (or offline synthetic conditions) ──────────────
+    if offline_mode:
+        conds = offline_conditions or {}
+        plasma_df, mag_df, kp_df, noaa_source = build_offline_conditions(
+            speed=conds.get("speed"),
+            density=conds.get("density"),
+            bz=conds.get("bz"),
+            by=conds.get("by"),
+            bt=conds.get("bt"),
+            kp=conds.get("kp"),
+        )
+        print("[offline] NOAA SWPC feeds bypassed — using supplied current conditions.")
+    else:
+        try:
+            plasma_df, mag_df, kp_df, noaa_source = load_noaa_data(cfg)
+        except RuntimeError as e:
+            print(
+                f"[WARNING] NOAA SWPC feeds unavailable ({e}). "
+                "Falling back to offline quiet-day defaults.",
+                file=sys.stderr,
+            )
+            plasma_df, mag_df, kp_df, noaa_source = build_offline_conditions()
 
     # ── Stage 2: OMNI training archive ────────────────────────────────────────
     # Load OMNI BEFORE building NOAA features — we need omni_kp_hist to source

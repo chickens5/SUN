@@ -122,6 +122,9 @@ def main() -> None:
             "  python -m ggsp --start-year 1990 --years 35             # SC22–SC25\n"
             "  python -m ggsp --no-plots --json-out ggsp_output.json   # headless + React\n"
             "  python -m ggsp --refit --static-weights                 # force retrain\n"
+            "  python -m ggsp --offline                                # 7-day forecast, no NOAA\n"
+            "  python -m ggsp --offline --bz -8 --sw-speed 550 --current-kp 3\n"
+            "                                                           # active SW conditions\n"
             f"\nOMNI data range: {OMNI_FIRST_YEAR}–{OMNI_LAST_SAFE_YEAR}"
         ),
     )
@@ -139,7 +142,48 @@ def main() -> None:
                         help="Force model retraining even if cache/model.joblib is valid.")
     parser.add_argument("--static-weights", action="store_true",
                         help="Skip sunspot modifier; use fixed Q=0.20 / M=0.50 / A=0.30 weights.")
+
+    # ── Offline / NOAA-unavailable mode ───────────────────────────────────────
+    offline_grp = parser.add_argument_group(
+        "offline mode",
+        "Use when NOAA SWPC feeds are temporarily unavailable.\n"
+        "--offline builds synthetic 7-day solar-wind data from the supplied\n"
+        "current conditions and runs a 7-day (56-step) forecast.\n"
+        "All condition flags are optional; omitted values default to quiet-day."
+    )
+    offline_grp.add_argument("--offline",      action="store_true",
+                        help="Bypass live NOAA fetch; use current-conditions inputs instead.")
+    offline_grp.add_argument("--sw-speed",  type=float, default=None, metavar="KM_S",
+                        help="Solar wind speed in km/s (default 400).")
+    offline_grp.add_argument("--sw-density", type=float, default=None, metavar="CM3",
+                        help="Solar wind proton density in cm⁻³ (default 5).")
+    offline_grp.add_argument("--bz",         type=float, default=None, metavar="NT",
+                        help="IMF Bz (GSM) in nT — negative = southward/geoeffective (default 0).")
+    offline_grp.add_argument("--by",         type=float, default=None, metavar="NT",
+                        help="IMF By (GSM) in nT (default 0).")
+    offline_grp.add_argument("--bt",         type=float, default=None, metavar="NT",
+                        help="IMF total field magnitude in nT (default 5).")
+    offline_grp.add_argument("--current-kp", type=float, default=None, metavar="KP",
+                        help="Current observed Kp index 0–9 (default 2).")
     args = parser.parse_args()
+
+    # Offline condition flags are only valid alongside --offline.
+    _condition_flags = (args.sw_speed, args.sw_density, args.bz, args.by,
+                        args.bt, args.current_kp)
+    if any(v is not None for v in _condition_flags) and not args.offline:
+        print(
+            "[WARNING] Solar-wind condition flags (--sw-speed, --bz, etc.) are ignored "
+            "unless --offline is also passed.",
+            file=sys.stderr,
+        )
+
+    # Offline Kp range guard.
+    if args.current_kp is not None and not (0.0 <= args.current_kp <= 9.0):
+        print(
+            f"[ERROR] --current-kp {args.current_kp} is outside the valid range 0–9.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # ── Pre-run validation ────────────────────────────────────────────────────
     errors = validate_args(args)
@@ -152,11 +196,16 @@ def main() -> None:
 
     # ── Configuration summary ─────────────────────────────────────────────────
     end_year = args.start_year + args.years - 1
+    # Offline mode uses a 7-day forecast (56 × 3h steps) instead of the default 72 h.
+    forecast_steps = 56 if args.offline else 24
     print("=" * 57)
     print("   GGSP — Geomagnetic Storm Prediction Pipeline")
     print("=" * 57)
     print(f"  OMNI training window : {args.start_year}–{end_year}  ({args.years} yr)")
     print(f"  Train/test split     : {args.train_frac:.0%} / {1 - args.train_frac:.0%}")
+    if args.offline:
+        print(f"  Mode                 : OFFLINE (NOAA feeds bypassed)")
+        print(f"  Forecast window      : 7 days ({forecast_steps} × 3h steps)")
     print(f"  Plots                : {'off (headless)' if args.no_plots else 'on'}")
     print(f"  JSON output          : {args.json_out or 'none'}")
     print("=" * 57)
@@ -167,7 +216,21 @@ def main() -> None:
         omni_start_year=args.start_year,
         omni_num_years=args.years,
         train_fraction=args.train_frac,
+        forecast_steps_3h=forecast_steps,
     )
+
+    offline_conditions: dict | None = None
+    if args.offline:
+        offline_conditions = {
+            k: v for k, v in {
+                "speed":   args.sw_speed,
+                "density": args.sw_density,
+                "bz":      args.bz,
+                "by":      args.by,
+                "bt":      args.bt,
+                "kp":      args.current_kp,
+            }.items() if v is not None
+        }
 
     try:
         results = run_pipeline(
@@ -176,21 +239,27 @@ def main() -> None:
             json_output_path=args.json_out,
             refit=args.refit,
             static_weights=args.static_weights,
+            offline_mode=args.offline,
+            offline_conditions=offline_conditions,
         )
     except RuntimeError as exc:
         print(f"\n[ERROR] Pipeline failed: {exc}", file=sys.stderr)
-        print(
-            "\nCommon causes:\n"
-            "  - NOAA SWPC feeds are temporarily unreachable\n"
-            "  - SPDF OMNI server timeout — try a shorter --years window\n"
-            "  - Requested OMNI years return empty .dat files\n",
-            file=sys.stderr,
-        )
+        if not args.offline:
+            print(
+                "\nCommon causes:\n"
+                "  - NOAA SWPC feeds are temporarily unreachable\n"
+                "    → retry in a few minutes, or use --offline to bypass\n"
+                "  - SPDF OMNI server timeout — try a shorter --years window\n"
+                "  - Requested OMNI years return empty .dat files\n",
+                file=sys.stderr,
+            )
         sys.exit(2)
 
     # ── Results summary ───────────────────────────────────────────────────────
     print("=== GGSP Pipeline Summary ===")
-    print(f"NOAA source: {results['sources']['noaa']}")
+    noaa_tag = results["sources"]["noaa"]
+    print(f"NOAA source: {noaa_tag}" +
+          ("  [offline — NOAA feeds bypassed]" if noaa_tag == "offline_conditions" else ""))
     print(f"OMNI source: {results['sources']['omni']}")
     counts = results["counts"]
     print(
@@ -233,11 +302,13 @@ def main() -> None:
     )
 
     forecast = results["forecast"]
-    storm_72h = forecast.get("storm_prob_72h_pct", forecast.get("storm_chance_percent", 0.0))
+    storm_prob = forecast.get("storm_prob_72h_pct", forecast.get("storm_chance_percent", 0.0))
+    n_steps    = len(forecast.get("times", []))
+    fc_hours   = n_steps * 3
     print(
-        f"72h    : mean Kp={forecast['mean_weighted_kp']:.2f}  "
+        f"{fc_hours}h   : mean Kp={forecast['mean_weighted_kp']:.2f}  "
         f"peak Kp={forecast['peak_weighted_kp']:.2f}  "
-        f"P(storm 72h)={storm_72h:.1f}%  "
+        f"P(G1+ storm {fc_hours}h)={storm_prob:.1f}%  "
         f"seed={forecast['forecast_seed_source']}"
     )
 

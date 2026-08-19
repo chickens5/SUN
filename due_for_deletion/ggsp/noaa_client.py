@@ -196,3 +196,99 @@ def _sanity_check_noaa(
         f"[OK] NOAA: plasma={len(plasma_df)} rows, "
         f"mag={len(mag_df)} rows, kp={len(kp_df)} rows"
     )
+
+
+# ── Offline / NOAA-unavailable fallback ───────────────────────────────────────
+
+#: Quiet-day defaults used when the caller does not supply a condition value.
+OFFLINE_DEFAULTS: dict = {
+    "speed":      400.0,   # km/s  — typical slow solar wind
+    "density":    5.0,     # cm⁻³  — average interplanetary density
+    "bz":         0.0,     # nT    — no preferred southward/northward tilt
+    "by":         0.0,     # nT    — no preferred dawn-dusk tilt
+    "bt":         5.0,     # nT    — typical IMF magnitude
+    "kp":         2.0,     # Kp    — quiet-day level
+}
+
+
+def build_offline_conditions(
+    speed:   float | None = None,
+    density: float | None = None,
+    bz:      float | None = None,
+    by:      float | None = None,
+    bt:      float | None = None,
+    kp:      float | None = None,
+):
+    """Build synthetic 7-day DataFrames from user-supplied (or default) conditions.
+
+    When the NOAA SWPC feeds are unreachable this function creates the same
+    three DataFrames that ``load_noaa_data`` would normally return, filled with
+    constant solar-wind values so the rest of the pipeline runs unchanged.
+
+    The 7-day window is anchored at UTC now so that forecast timestamps are
+    always relative to the current moment.  Conditions are held constant
+    throughout the window — the forecast scenarios (Quiet / Moderate / Active)
+    add scenario-specific variability on top of this baseline.
+
+    Parameters
+    ----------
+    speed   : Solar wind speed in km/s          (default 400)
+    density : Solar wind proton density in cm⁻³ (default 5)
+    bz      : IMF Bz (GSM) in nT                (default 0)
+    by      : IMF By (GSM) in nT                (default 0)
+    bt      : IMF total field magnitude in nT   (default 5)
+    kp      : Current Kp index                  (default 2)
+
+    Returns
+    -------
+    plasma_df   : 1-min cadence DataFrame with columns speed, density, temperature
+    mag_df      : 1-min cadence DataFrame with columns bx_gsm, by_gsm, bz_gsm,
+                  lon_gsm, lat_gsm, bt
+    kp_df       : 3-h cadence DataFrame with column Kp
+    source_tag  : "offline_conditions"
+    """
+    speed   = float(speed   if speed   is not None else OFFLINE_DEFAULTS["speed"])
+    density = float(density if density is not None else OFFLINE_DEFAULTS["density"])
+    bz      = float(bz      if bz      is not None else OFFLINE_DEFAULTS["bz"])
+    by      = float(by      if by      is not None else OFFLINE_DEFAULTS["by"])
+    bt_val  = float(bt      if bt      is not None else OFFLINE_DEFAULTS["bt"])
+    kp_val  = float(kp      if kp      is not None else OFFLINE_DEFAULTS["kp"])
+
+    # Ensure bt is at least |bz| and |by| to be physically consistent.
+    bt_val = max(bt_val, abs(bz), abs(by))
+
+    # Bx is set so that Bx² + By² + Bz² ≤ Bt², remainder absorbed into Bx.
+    bx_sq  = max(0.0, bt_val ** 2 - by ** 2 - bz ** 2)
+    bx_val = float(np.sqrt(bx_sq))
+
+    # Temperature estimated from the empirical Burlaga–Ogilvie relation:
+    #   T ≈ (V / 258)^(3/2) × 10^4  K  — rough but physically plausible.
+    temperature = ((speed / 258.0) ** 1.5) * 1e4
+
+    now     = pd.Timestamp.now("UTC").floor("min")
+    minutes = pd.date_range(end=now, periods=7 * 24 * 60, freq="1min", tz="UTC")
+
+    plasma_df = pd.DataFrame({
+        "speed":       speed,
+        "density":     density,
+        "temperature": temperature,
+    }, index=minutes)
+
+    mag_df = pd.DataFrame({
+        "bx_gsm":  bx_val,
+        "by_gsm":  by,
+        "bz_gsm":  bz,
+        "lon_gsm": 0.0,
+        "lat_gsm": 0.0,
+        "bt":      bt_val,
+    }, index=minutes)
+
+    kp_times = pd.date_range(end=now.floor("3h"), periods=7 * 8, freq="3h", tz="UTC")
+    kp_df = pd.DataFrame({"Kp": kp_val}, index=kp_times)
+
+    print(
+        f"[offline] Synthetic conditions: speed={speed:.0f} km/s  "
+        f"density={density:.1f} cm^-3  Bz={bz:+.1f} nT  "
+        f"By={by:+.1f} nT  Bt={bt_val:.1f} nT  Kp={kp_val:.1f}"
+    )
+    return plasma_df, mag_df, kp_df, "offline_conditions"
