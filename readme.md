@@ -8,4 +8,4 @@ Predicts the **planetary Kp index** (0–9 scale of geomagnetic storm intensity)
 solar wind data, using physics-based feature engineering and gradient-boosted regression.
 
 
-*Last updated: May 27 2026 — chickens5 | UMSL CS 2026*
+*Last updated: August 19 2026 — chickens5 | UMSL CS 2026*
